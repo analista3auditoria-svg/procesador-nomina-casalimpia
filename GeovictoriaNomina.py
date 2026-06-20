@@ -3,12 +3,16 @@ import pandas as pd
 import re
 import io
 
-# Configuración de la página web
+# Configuración de la página web amplia
 st.set_page_config(
     page_title="Procesador de Nómina - Casalimpia",
     page_icon="📊",
     layout="wide"
 )
+
+# Inicializar la memoria de sesión si no existe
+if 'df_consolidado' not in st.session_state:
+    st.session_state.df_consolidado = None
 
 # Estilos visuales en la parte superior (Azul corporativo)
 st.markdown(
@@ -18,10 +22,9 @@ st.markdown(
         <p style="color:#cbd5e1; text-align:center; margin:5px 0 0 0;">Malla de Validación de Horas GeoVictoria</p>
     </div>
     """, 
-    unsafe_allow_html=True  # <-- Corrección aquí (sin la 'ed')
+    unsafe_allow_html=True
 )
 
-# Funciones de procesamiento de fechas
 def parse_geovictoria_date(val):
     if pd.isna(val):
         return pd.NaT
@@ -34,6 +37,10 @@ def parse_geovictoria_date(val):
 st.subheader("1. Seleccione el Reporte Base de GeoVictoria")
 uploaded_file = st.file_uploader("Arrastra o selecciona tu archivo (.xlsx o .csv)", type=["xlsx", "csv"])
 
+# Si el usuario cambia o quita el archivo, limpiamos la memoria
+if uploaded_file is None:
+    st.session_state.df_consolidado = None
+
 # --- PASO 2: RANGO DE FECHAS ---
 st.subheader("2. Seleccione el Rango de Fechas")
 col_f1, col_f2 = st.columns(2)
@@ -44,7 +51,7 @@ with col_f2:
 
 st.info("Compilado optimizado para entorno Web Navegador. Los datos se procesan de forma segura.")
 
-# --- PROCESAMIENTO ---
+# --- BOTÓN DE PROCESAMIENTO ---
 if uploaded_file is not None:
     if st.button("PROCESAR Y CUADRAR INFORMACIÓN", type="primary", use_container_width=True):
         try:
@@ -54,7 +61,6 @@ if uploaded_file is not None:
             if f_ini > f_fin:
                 st.error("Error: La fecha inicial no puede ser mayor a la fecha final.")
             else:
-                # Lectura según el tipo de archivo
                 if uploaded_file.name.endswith('.xlsx'):
                     try:
                         df = pd.read_excel(uploaded_file, sheet_name="Reporte Geo victoria")
@@ -67,7 +73,6 @@ if uploaded_file is not None:
                     except UnicodeDecodeError:
                         df = pd.read_csv(uploaded_file, encoding='latin1')
 
-                # Homologación de cédula
                 if 'ID' in df.columns:
                     df = df.rename(columns={'ID': 'Identificador'})
                     
@@ -76,7 +81,6 @@ if uploaded_file is not None:
                     st.error("El archivo cargado no contiene las columnas básicas necesarias (ID/Identificador, Apellidos, Nombres, Fecha).")
                     st.stop()
 
-                # Mapeo de columnas por posición (Índices Base 0)
                 if len(df.columns) >= 49:
                     df = df.rename(columns={
                         df.columns[20]: 'COLUMNA_U',   df.columns[22]: 'COLUMNA_W', 
@@ -92,7 +96,6 @@ if uploaded_file is not None:
                     st.error("El archivo no contiene suficientes columnas (Se requiere al menos hasta la columna AW).")
                     st.stop()
 
-                # Filtrar por fechas
                 df['Fecha_Procesada'] = df['Fecha'].apply(parse_geovictoria_date)
                 df = df.dropna(subset=['Fecha_Procesada'])
                 df_filtered = df[(df['Fecha_Procesada'] >= f_ini) & (df['Fecha_Procesada'] <= f_fin)].copy()
@@ -101,7 +104,6 @@ if uploaded_file is not None:
                     st.warning("No se encontraron registros en el rango de fechas seleccionado.")
                     st.stop()
 
-                # Limpieza de datos numéricos
                 columnas_horas = ['COLUMNA_U', 'COLUMNA_W', 'COLUMNA_Y', 'COLUMNA_AA', 'COLUMNA_AC', 
                                   'COLUMNA_AE', 'COLUMNA_AG', 'COLUMNA_AI', 'COLUMNA_AK', 'COLUMNA_AM', 
                                   'COLUMNA_AO', 'COLUMNA_AQ', 'COLUMNA_AS', 'COLUMNA_AU', 'COLUMNA_AW']
@@ -141,45 +143,45 @@ if uploaded_file is not None:
                     'EXTRAS DOMINICALES DIURNAS (2.00%)', 'EXTRAS ORDINARIAS NOCTURNAS (1.75%)', 'EXTRAS DOMINICALES NOCTURNAS (2.50%)'
                 ]
 
-                # Agrupación por empleado
-                df_consolidado = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_finales].sum().reset_index()
-                
-                # Éxito: Mostrar vista previa en la página
-                st.success("¡Cálculo completado con éxito!")
-                
-                # --- NUEVA SECCIÓN: CUADRO DE BÚSQUEDA POR IDENTIFICADOR ---
-                st.subheader("🔍 Filtrar resultados")
-                busqueda = st.text_input(
-                    "Escriba el Identificador (Cédula) para consultar un empleado específico:", 
-                    placeholder="Ej: 7082822..."
-                ).strip()
-
-                # Si el usuario escribe algo, filtramos el dataframe original
-                if busqueda:
-                    # Convertimos a string para asegurar la comparación si los IDs vienen mezclados
-                    df_mostrar = df_consolidado[df_consolidado['Identificador'].astype(str).str.contains(busqueda, case=False)]
-                    if df_mostrar.empty:
-                        st.warning(f"No se encontró ningún empleado con el identificador: {busqueda}")
-                else:
-                    df_mostrar = df_consolidado.head(15) # Si está vacío, muestra los primeros 15 por defecto
-                
-                # Desplegar la tabla filtrada o completa
-                st.dataframe(df_mostrar, use_container_width=True)
-                
-                # Crear el archivo Excel en memoria para la descarga web (este siempre descarga TODO el consolidado completo)
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
-                processed_data = output.getvalue()
-                
-                # Botón web nativo de descarga
-                st.download_button(
-                    label="📥 DESCARGAR EXCEL CONSOLIDADO COMPLETO",
-                    data=processed_data,
-                    file_name="Consolidado_Nomina_SIC.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+                # Guardamos el resultado final en la memoria de la sesión
+                st.session_state.df_consolidado = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_finales].sum().reset_index()
+                st.success("¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
                 
         except Exception as e:
             st.error(f"Ocurrió un error inesperado: {str(e)}")
+
+# --- SECCIÓN DE RESULTADOS PERSISTENTE ---
+# Si los datos ya existen en la memoria, los mostramos permanentemente aquí abajo
+if st.session_state.df_consolidado is not None:
+    st.markdown("---")
+    st.subheader("🔍 Cuadro de Consulta y Búsqueda")
+    
+    busqueda = st.text_input(
+        "Filtrar por Identificador (Cédula):", 
+        placeholder="Escribe la cédula y presiona Enter para buscar..."
+    ).strip()
+
+    # Filtrar dinámicamente según la búsqueda
+    if busqueda:
+        df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado['Identificador'].astype(str).str.contains(busqueda, case=False)]
+        if df_mostrar.empty:
+            st.warning(f"No se encontró ningún empleado con la cédula: {busqueda}")
+    else:
+        df_mostrar = st.session_state.df_consolidado
+
+    # Desplegar la tabla principal
+    st.dataframe(df_mostrar, use_container_width=True)
+    
+    # Preparar el botón de descarga del set de datos completo
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        st.session_state.df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
+    processed_data = output.getvalue()
+    
+    st.download_button(
+        label="📥 DESCARGAR EXCEL CONSOLIDADO COMPLETO",
+        data=processed_data,
+        file_name="Consolidado_Nomina_SIC.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
