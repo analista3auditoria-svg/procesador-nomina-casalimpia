@@ -7,7 +7,7 @@ import io
 st.set_page_config(
     page_title="Procesador de Nómina - Casalimpia",
     page_icon="📊",
-    layout="centered"
+    layout="wide"
 )
 
 # Estilos visuales en la parte superior (Azul corporativo)
