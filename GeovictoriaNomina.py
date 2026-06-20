@@ -146,9 +146,27 @@ if uploaded_file is not None:
                 
                 # Éxito: Mostrar vista previa en la página
                 st.success("¡Cálculo completado con éxito!")
-                st.dataframe(df_consolidado.head(10)) # Muestra los primeros 10 para verificar
                 
-                # Crear el archivo Excel en memoria para la descarga web
+                # --- NUEVA SECCIÓN: CUADRO DE BÚSQUEDA POR IDENTIFICADOR ---
+                st.subheader("🔍 Filtrar resultados")
+                busqueda = st.text_input(
+                    "Escriba el Identificador (Cédula) para consultar un empleado específico:", 
+                    placeholder="Ej: 7082822..."
+                ).strip()
+
+                # Si el usuario escribe algo, filtramos el dataframe original
+                if busqueda:
+                    # Convertimos a string para asegurar la comparación si los IDs vienen mezclados
+                    df_mostrar = df_consolidado[df_consolidado['Identificador'].astype(str).str.contains(busqueda, case=False)]
+                    if df_mostrar.empty:
+                        st.warning(f"No se encontró ningún empleado con el identificador: {busqueda}")
+                else:
+                    df_mostrar = df_consolidado.head(15) # Si está vacío, muestra los primeros 15 por defecto
+                
+                # Desplegar la tabla filtrada o completa
+                st.dataframe(df_mostrar, use_container_width=True)
+                
+                # Crear el archivo Excel en memoria para la descarga web (este siempre descarga TODO el consolidado completo)
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
@@ -156,7 +174,7 @@ if uploaded_file is not None:
                 
                 # Botón web nativo de descarga
                 st.download_button(
-                    label="📥 DESCARGAR EXCEL CONSOLIDADO",
+                    label="📥 DESCARGAR EXCEL CONSOLIDADO COMPLETO",
                     data=processed_data,
                     file_name="Consolidado_Nomina_SIC.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
