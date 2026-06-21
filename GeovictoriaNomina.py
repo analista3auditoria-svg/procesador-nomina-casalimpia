@@ -7,7 +7,7 @@ import io
 st.set_page_config(
     page_title="Malla de Marcaciones GeoVictoria",
     page_icon="📊",
-    layout="wide"
+    layout="centered"
 )
 
 # Inicializar la memoria de sesión
@@ -76,15 +76,7 @@ with col_file1:
 with col_file2:
     uploaded_nomina = st.file_uploader("Archivo de Nómina (.xlsx, .csv)", type=["xlsx", "csv"], key="nom_file")
 
-# --- PASO 2: RANGO DE FECHAS Y FILTRO DE PERIODO ---
-st.subheader("📅 2. Parámetros de Filtrado y Fechas")
-col_f1, col_f2 = st.columns(2)
-with col_f1:
-    f_ini_input = st.date_input("Fecha Inicial Marcaciones (Desde)", pd.to_datetime("2026-01-10"))
-with col_f2:
-    f_fin_input = st.date_input("Fecha Final Marcaciones (Hasta)", pd.to_datetime("2026-02-13"))
-
-# Detectar y extraer periodos si el archivo de nómina es cargado preliminarmente
+# Detectar y extraer periodos si el archivo de nómina es cargado
 df_nom_preliminar = None
 if uploaded_nomina is not None:
     try:
@@ -112,6 +104,14 @@ if uploaded_nomina is not None:
             st.session_state.periodos_disponibles = sorted(df_nom_preliminar[col_periodo_name].dropna().unique().tolist())
     except Exception:
         st.session_state.periodos_disponibles = []
+
+# --- PASO 2: RANGO DE FECHAS Y FILTRO DE PERIODO ---
+st.subheader("📅 2. Parámetros de Filtrado y Fechas")
+col_f1, col_f2 = st.columns(2)
+with col_f1:
+    f_ini_input = st.date_input("Fecha Inicial Marcaciones (Desde)", pd.to_datetime("2026-01-10"))
+with col_f2:
+    f_fin_input = st.date_input("Fecha Final Marcaciones (Hasta)", pd.to_datetime("2026-02-13"))
 
 # Desplegar el selector dinámico del periodo solicitado
 periodos_seleccionados = st.multiselect(
@@ -177,20 +177,21 @@ if uploaded_file is not None:
                     st.warning("⚠️ No se encontraron registros de marcación en el rango de fechas seleccionado.")
                     st.stop()
 
+                # --- CONTROL SEGURO PARA RFD, RFN, RDF, RNF (Evita el Error 'RFD') ---
+                for fixed_col in ['RFD', 'RFN', 'RDF', 'RNF']:
+                    if fixed_col not in df_filtered.columns:
+                        df_filtered[fixed_col] = 0.0
+
                 columnas_horas = ['COLUMNA_U', 'COLUMNA_W', 'COLUMNA_Y', 'COLUMNA_AA', 'COLUMNA_AC', 
                                   'COLUMNA_AE', 'COLUMNA_AG', 'COLUMNA_AI', 'COLUMNA_AK', 'COLUMNA_AM', 
-                                  'COLUMNA_AO', 'COLUMNA_AQ', 'COLUMNA_AS', 'COLUMNA_AU', 'COLUMNA_AW']
+                                  'COLUMNA_AO', 'COLUMNA_AQ', 'COLUMNA_AS', 'COLUMNA_AU', 'COLUMNA_AW',
+                                  'RFD', 'RFN', 'RDF', 'RNF']
                                   
                 for col in columnas_horas:
                     if col in df_filtered.columns:
                         df_filtered[col] = df_filtered[col].astype(str).str.replace(',', '.', regex=False).str.strip()
                         df_filtered[col] = df_filtered[col].replace(['', 'nan', 'None'], '0')
                         df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce').fillna(0.0)
-
-                for fixed_col in ['RFD', 'RFN', 'RDF', 'RNF']:
-                    if fixed_col in df_filtered.columns:
-                        df_filtered[fixed_col] = df_filtered[fixed_col].astype(str).str.replace(',', '.', regex=False).str.strip()
-                        df_filtered[fixed_col] = pd.to_numeric(df_filtered[fixed_col], errors='coerce').fillna(0.0)
 
                 # --- OPERACIONES ARITMÉTICAS ---
                 df_filtered['C1067'] = df_filtered['COLUMNA_AM'] + df_filtered['COLUMNA_AO']
@@ -245,13 +246,13 @@ if uploaded_file is not None:
                 if df_nom_preliminar is not None:
                     df_nom = df_nom_preliminar.copy()
                     
-                    # Identificar la columna periodo dinámicamente de nuevo
+                    # Identificar la columna periodo dinámicamente
                     col_p = None
                     for c in df_nom.columns:
                         if c.upper() in ['PERIODO', 'MES', 'PERÍODO']: col_p = c; break
                     if col_p is None: col_p = df_nom.columns[0]
                     
-                    # Aplicar filtro de periodos seleccionados por interfaz
+                    # Aplicar filtro de periodos seleccionados por la interfaz
                     if periodos_seleccionados:
                         df_nom = df_nom[df_nom[col_p].isin(periodos_seleccionados)]
                     
@@ -315,7 +316,6 @@ if st.session_state.df_consolidado is not None:
         
         df_nom_comp = st.session_state.df_nomina_cargado.copy()
         
-        # Combinar datos incluyendo el PERIODO obtenido del Excel de Nómina
         df_comparativo = pd.merge(
             df_marcas, 
             df_nom_comp, 
@@ -336,10 +336,8 @@ if st.session_state.df_consolidado is not None:
         
         df_comparativo['Nombre Concepto'] = df_comparativo['Nombre Concepto'].fillna(df_comparativo['Concepto'].map(conceptos_dict)).fillna("Concepto Desconocido")
         
-        # Diferencia aritmética
         df_comparativo['DIF'] = df_comparativo['Cantidad_Nomina'] - df_comparativo['Cantidad']
         
-        # Estructura de visualización idéntica al requerimiento
         df_comparativo = df_comparativo.rename(columns={
             'PERIODO': 'PERIODO',
             'Cantidad_Nomina': 'Cantidad',
@@ -356,7 +354,6 @@ if st.session_state.df_consolidado is not None:
             
         st.dataframe(df_c_mostrar, use_container_width=True)
         
-        # Descarga
         output_comp = io.BytesIO()
         with pd.ExcelWriter(output_comp, engine='openpyxl') as writer:
             df_comparativo.to_excel(writer, index=False, sheet_name="Diferencias_SIC")
