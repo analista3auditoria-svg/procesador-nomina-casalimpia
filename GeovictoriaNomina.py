@@ -47,7 +47,7 @@ st.markdown(
 st.markdown(
     """
     <div class="custom-header">
-        <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">📊 PROCESADOR DE NÓMINA - CASALIMPIA</h1>
+        <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">📊 PROCESADOR DE MARCACIONES GEOVICTORIA - CASALIMPIA</h1>
         <p style="color:#cbd5e1; text-align:center; margin:5px 0 0 0;">Malla de Validación de Horas GeoVictoria</p>
     </div>
     """, 
