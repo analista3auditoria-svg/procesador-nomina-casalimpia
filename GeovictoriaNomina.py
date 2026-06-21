@@ -43,13 +43,15 @@ st.markdown(
             object-fit: contain;
         }
         
-        /* Personalización de las tablas de Streamlit */
+        /* Personalización de las tablas de Streamlit (Soporte MultiIndex) */
         div[data-testid="stDataFrame"] table th {
             background-color: #1e3a8a !important;
             color: white !important;
             font-weight: bold !important;
             text-align: center !important;
-            white-space: pre-wrap !important; /* Permite saltos de línea en cabeceras */
+            white-space: normal !important;
+            vertical-align: middle !important;
+            border: 1px solid #3b82f6 !important;
         }
         
         /* Ajuste para que los textos internos se alineen correctamente */
@@ -172,27 +174,45 @@ if uploaded_file is not None:
                     else:
                         df_filtered[fixed_col] = 0.0
 
-                # --- FÓRMULAS CON CODES DE CONCEPTO ASIGNADOS EN LA PARTE SUPERIOR ---
-                df_filtered['1067\nTOTAL DOM PLENO\n(1.75%)'] = df_filtered['COLUMNA_AM'] + df_filtered['COLUMNA_AO']
-                df_filtered['100730\nTOTAL FEST\n(1.75%)'] = df_filtered['RFD'] + df_filtered['RFN'] + df_filtered['RDF'] + df_filtered['RNF']
-                df_filtered['1066\nTOTAL DOM COMP\n(0.75%)'] = df_filtered['COLUMNA_AI'] + df_filtered['COLUMNA_AK']
-                df_filtered['100729\nTOTAL FEST\n(0.75%)'] = (df_filtered['COLUMNA_AQ'] + df_filtered['COLUMNA_AS'] + 
-                                                               df_filtered['COLUMNA_AU'] + df_filtered['COLUMNA_AW'])
-                df_filtered['1060\nTOTAL REC. NOC.\n(0.35%)'] = (df_filtered['COLUMNA_AG'] + df_filtered['COLUMNA_AK'] + 
-                                                                  df_filtered['COLUMNA_AS'] + df_filtered['COLUMNA_AO'] + 
-                                                                  df_filtered['COLUMNA_AW'])
-                df_filtered['1061\nEXTRAS ORDINARIAS DIURNAS\n(1.25%)'] = df_filtered['COLUMNA_U']
-                df_filtered['1063\nEXTRAS FESTIVAS DIURNAS\n(2.00%)'] = df_filtered['COLUMNA_Y'] + df_filtered['COLUMNA_AC']
-                df_filtered['1062\nEXTRAS ORDINARIAS NOCTURNAS\n(1.75%)'] = df_filtered['COLUMNA_W']
-                df_filtered['1064\nEXTRAS FESTIVAS NOCTURNAS\n(2.50%)'] = df_filtered['COLUMNA_AA'] + df_filtered['COLUMNA_AE']
+                # --- OPERACIONES ARITMÉTICAS ---
+                df_filtered['C1067'] = df_filtered['COLUMNA_AM'] + df_filtered['COLUMNA_AO']
+                df_filtered['C100730'] = df_filtered['RFD'] + df_filtered['RFN'] + df_filtered['RDF'] + df_filtered['RNF']
+                df_filtered['C1066'] = df_filtered['COLUMNA_AI'] + df_filtered['COLUMNA_AK']
+                df_filtered['C100729'] = (df_filtered['COLUMNA_AQ'] + df_filtered['COLUMNA_AS'] + 
+                                          df_filtered['COLUMNA_AU'] + df_filtered['COLUMNA_AW'])
+                df_filtered['C1060'] = (df_filtered['COLUMNA_AG'] + df_filtered['COLUMNA_AK'] + 
+                                        df_filtered['COLUMNA_AS'] + df_filtered['COLUMNA_AO'] + 
+                                        df_filtered['COLUMNA_AW'])
+                df_filtered['C1061'] = df_filtered['COLUMNA_U']
+                df_filtered['C1063'] = df_filtered['COLUMNA_Y'] + df_filtered['COLUMNA_AC']
+                df_filtered['C1062'] = df_filtered['COLUMNA_W']
+                df_filtered['C1064'] = df_filtered['COLUMNA_AA'] + df_filtered['COLUMNA_AE']
 
-                conceptos_finales = [
-                    '1067\nTOTAL DOM PLENO\n(1.75%)', '100730\nTOTAL FEST\n(1.75%)', '1066\nTOTAL DOM COMP\n(0.75%)',
-                    '100729\nTOTAL FEST\n(0.75%)', '1060\nTOTAL REC. NOC.\n(0.35%)', '1061\nEXTRAS ORDINARIAS DIURNAS\n(1.25%)',
-                    '1063\nEXTRAS FESTIVAS DIURNAS\n(2.00%)', '1062\nEXTRAS ORDINARIAS NOCTURNAS\n(1.75%)', '1064\nEXTRAS FESTIVAS NOCTURNAS\n(2.50%)'
+                # Agrupación base inicial
+                conceptos_tecnicos = ['C1067', 'C100730', 'C1066', 'C100729', 'C1060', 'C1061', 'C1063', 'C1062', 'C1064']
+                df_grouped = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_tecnicos].sum().reset_index()
+
+                # --- CONSTRUCCIÓN ESTRUCTURA DE DOBLE FILA (MultiIndex) ---
+                # Definimos las tuplas: (Fila Superior 1, Fila Inferior 2)
+                columnas_multi = [
+                    ('Identificador', 'Identificador'),
+                    ('Apellidos', 'Apellidos'),
+                    ('Nombres', 'Nombres'),
+                    ('1067', 'TOTAL DOM PLENO (1.75%)'),
+                    ('100730', 'TOTAL FEST (1.75%)'),
+                    ('1066', 'TOTAL DOM COMP (0.75%)'),
+                    ('100729', 'TOTAL FEST (0.75%)'),
+                    ('1060', 'TOTAL REC. NOC. (0.35%)'),
+                    ('1061', 'EXTRAS ORDINARIAS DIURNAS (1.25%)'),
+                    ('1063', 'EXTRAS FESTIVAS DIURNAS (2.00%)'),
+                    ('1062', 'EXTRAS ORDINARIAS NOCTURNAS (1.75%)'),
+                    ('1064', 'EXTRAS FESTIVAS NOCTURNAS (2.50%)')
                 ]
-
-                st.session_state.df_consolidado = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_finales].sum().reset_index()
+                
+                # Asignamos el MultiIndex al dataframe finalizado
+                df_grouped.columns = pd.MultiIndex.from_tuples(columnas_multi)
+                st.session_state.df_consolidado = df_grouped
+                
                 st.success("🎉 ¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
                 
         except Exception as e:
@@ -209,16 +229,17 @@ if st.session_state.df_consolidado is not None:
     ).strip()
 
     if busqueda:
-        df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado['Identificador'].astype(str).str.contains(busqueda, case=False)]
+        # Filtrado considerando que la columna es una tupla ('Identificador', 'Identificador')
+        df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado[('Identificador', 'Identificador')].astype(str).str.contains(busqueda, case=False)]
         if df_mostrar.empty:
             st.warning(f"⚠️ No se encontró ningún empleado con la cédula: {busqueda}")
     else:
         df_mostrar = st.session_state.df_consolidado
 
-    # Tabla interactiva con estilos CSS aplicados automáticamente
+    # Tabla interactiva con soporte nativo de Streamlit para MultiIndex (Doble fila superior)
     st.dataframe(df_mostrar, use_container_width=True)
     
-    # Preparar el archivo de descarga
+    # Preparar el archivo de descarga en Excel (Mantiene perfectamente la estructura de doble cabecera)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         st.session_state.df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
