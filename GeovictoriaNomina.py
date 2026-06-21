@@ -10,15 +10,18 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inicializar la memoria de sesión si no existe
+# Inicializar la memoria de sesión
 if 'df_consolidado' not in st.session_state:
     st.session_state.df_consolidado = None
+if 'df_vertical_final' not in st.session_state:
+    st.session_state.df_vertical_final = None
+if 'df_nomina_cargado' not in st.session_state:
+    st.session_state.df_nomina_cargado = None
 
 # --- ESTILOS VISUALES PERSONALIZADOS (CSS) ---
 st.markdown(
     """
     <style>
-        /* Encabezado de la página centrado y limpio sin logo */
         .custom-header {
             background-color: #1e3a8a; 
             padding: 20px; 
@@ -26,8 +29,6 @@ st.markdown(
             margin-bottom: 25px;
             text-align: center;
         }
-        
-        /* Personalización de las tablas de Streamlit (Soporte MultiIndex) */
         div[data-testid="stDataFrame"] table th {
             background-color: #1e3a8a !important;
             color: white !important;
@@ -37,8 +38,6 @@ st.markdown(
             vertical-align: middle !important;
             border: 1px solid #3b82f6 !important;
         }
-        
-        /* Ajuste para que los textos internos se alineen correctamente */
         div[data-testid="stDataFrame"] {
             font-family: Arial, sans-serif;
         }
@@ -47,12 +46,12 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Banner corporativo superior sin Logo
+# Banner corporativo superior
 st.markdown(
     """
     <div class="custom-header">
         <h1 style="color:white; margin:0; font-family:Arial; font-size: 24px;">MALLA DE MARCACIONES GEOVICTORIA</h1>
-        <p style="color:#cbd5e1; margin:5px 0 0 0; font-size: 14px;">Malla de Validación de Horas - Casalimpia S.A.</p>
+        <p style="color:#cbd5e1; margin:5px 0 0 0; font-size: 14px;">Malla de Validación y Comparación de Horas - Casalimpia S.A.</p>
     </div>
     """, 
     unsafe_allow_html=True
@@ -66,12 +65,18 @@ def parse_geovictoria_date(val):
         return pd.to_datetime(match.group(1), format="%d-%m-%Y")
     return pd.NaT
 
-# --- PASO 1: CARGA DE ARCHIVO ---
-st.subheader("📁 1. Seleccione el Reporte Base de GeoVictoria")
-uploaded_file = st.file_uploader("Arrastra o selecciona tu archivo (.xlsx o .csv)", type=["xlsx", "csv"])
+# --- PASO 1: CARGA DE ARCHIVOS ---
+st.subheader("📁 1. Carga de Archivos Base")
+col_file1, col_file2 = st.columns(2)
+
+with col_file1:
+    uploaded_file = st.file_uploader("Reporte Base GeoVictoria (.xlsx, .csv)", type=["xlsx", "csv"], key="gv_file")
+with col_file2:
+    uploaded_nomina = st.file_uploader("Archivo de Nómina (Opcional para Comparar) (.xlsx, .csv)", type=["xlsx", "csv"], key="nom_file")
 
 if uploaded_file is None:
     st.session_state.df_consolidado = None
+    st.session_state.df_vertical_final = None
 
 # --- PASO 2: RANGO DE FECHAS ---
 st.subheader("📅 2. Seleccione el Rango de Fechas")
@@ -93,6 +98,7 @@ if uploaded_file is not None:
             if f_ini > f_fin:
                 st.error("❌ Error: La fecha inicial no puede ser mayor a la fecha final.")
             else:
+                # --- LEER ARCHIVO GEOVICTORIA ---
                 if uploaded_file.name.endswith('.xlsx'):
                     try:
                         df = pd.read_excel(uploaded_file, sheet_name="Reporte Geo victoria")
@@ -110,7 +116,7 @@ if uploaded_file is not None:
                     
                 required = ['Identificador', 'Apellidos', 'Nombres', 'Fecha']
                 if not all(col in df.columns for col in required):
-                    st.error("❌ El archivo cargado no contiene las columnas básicas necesarias (ID/Identificador, Apellidos, Nombres, Fecha).")
+                    st.error("❌ El archivo de GeoVictoria no contiene las columnas básicas necesarias (ID/Identificador, Apellidos, Nombres, Fecha).")
                     st.stop()
 
                 if len(df.columns) >= 49:
@@ -125,7 +131,7 @@ if uploaded_file is not None:
                         df.columns[48]: 'COLUMNA_AW'
                     })
                 else:
-                    st.error("❌ El archivo no contiene suficientes columnas (Se requiere al menos hasta la columna AW).")
+                    st.error("❌ El archivo de GeoVictoria no contiene suficientes columnas (Se requiere al menos hasta la columna AW).")
                     st.stop()
 
                 df['Fecha_Procesada'] = df['Fecha'].apply(parse_geovictoria_date)
@@ -169,104 +175,174 @@ if uploaded_file is not None:
                 df_filtered['C1062'] = df_filtered['COLUMNA_W']
                 df_filtered['C1064'] = df_filtered['COLUMNA_AA'] + df_filtered['COLUMNA_AE']
 
-                # Agrupación base inicial
                 conceptos_tecnicos = ['C1067', 'C100730', 'C1066', 'C100729', 'C1060', 'C1061', 'C1063', 'C1062', 'C1064']
                 df_grouped = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_tecnicos].sum().reset_index()
 
-                # --- CONSTRUCCIÓN ESTRUCTURA DE DOBLE FILA (MultiIndex) ---
+                # --- ESTRUCTURA MATRICIAL (MultiIndex) ---
                 columnas_multi = [
-                    ('Número concepto', 'Identificador'),
-                    ('Número concepto', 'Apellidos'),
-                    ('Número concepto', 'Nombres'),
-                    ('1067', 'TOTAL DOM PLENO (1.75%)'),
-                    ('100730', 'TOTAL FEST (1.75%)'),
-                    ('1066', 'TOTAL DOM COMP (0.75%)'),
-                    ('100729', 'TOTAL FEST (0.75%)'),
-                    ('1060', 'TOTAL REC. NOC. (0.35%)'),
-                    ('1061', 'EXTRAS ORDINARIAS DIURNAS (1.25%)'),
-                    ('1063', 'EXTRAS FESTIVAS DIURNAS (2.00%)'),
-                    ('1062', 'EXTRAS ORDINARIAS NOCTURNAS (1.75%)'),
-                    ('1064', 'EXTRAS FESTIVAS NOCTURNAS (2.50%)')
+                    ('Número concepto', 'Identificador'), ('Número concepto', 'Apellidos'), ('Número concepto', 'Nombres'),
+                    ('1067', 'Recargo Dominical No Compensado'), ('100730', 'Recargo Festivo'),
+                    ('1066', 'Recargo Dominical Compensado'), ('100729', 'Recargo Festivo'),
+                    ('1060', 'Recargo Nocturno 0.35%'), ('1061', 'Extras Ordinarias Diurnas'),
+                    ('1063', 'Extras Festivas Diurnas'), ('1062', 'Extras Ordinarias Nocturnas'),
+                    ('1064', 'Extras Festivas Nocturnas')
                 ]
-                
-                # Asignamos el MultiIndex al dataframe finalizado
                 df_grouped.columns = pd.MultiIndex.from_tuples(columnas_multi)
                 st.session_state.df_consolidado = df_grouped
                 
-                st.success("🎉 ¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
+                # --- ESTRUCTURA VERTICAL (DESPIVOTE) ---
+                df_flat = df_grouped.copy()
+                identificador_col = df_flat[('Número concepto', 'Identificador')]
+                nombre_completo_col = df_flat[('Número concepto', 'Apellidos')].astype(str) + " " + df_flat[('Número concepto', 'Nombres')].astype(str)
+                conceptos_columnas = [col for col in df_flat.columns if col[0] != 'Número concepto']
+                
+                df_listado = []
+                for col in conceptos_columnas:
+                    df_temp = pd.DataFrame({
+                        'Identificador': identificador_col,
+                        'Nombre': nombre_completo_col,
+                        'Concepto': col[0].replace('C', ''), # Quitar la C para que quede numérico puro
+                        'Nombre Concepto': col[1],
+                        'Cantidad': df_flat[col]
+                    })
+                    df_listado.append(df_temp)
+                    
+                df_vertical_final = pd.concat(df_listado, ignore_index=True)
+                df_vertical_final = df_vertical_final[df_vertical_final['Cantidad'] > 0].sort_values(by=['Identificador', 'Concepto']).reset_index(drop=True)
+                st.session_state.df_vertical_final = df_vertical_final
+
+                # --- LEER ARCHIVO DE NÓMINA (SI EXISTE) ---
+                if uploaded_nomina is not None:
+                    if uploaded_nomina.name.endswith('.xlsx'):
+                        df_nom = pd.read_excel(uploaded_nomina)
+                    else:
+                        try:
+                            df_nom = pd.read_csv(uploaded_nomina, encoding='utf-8')
+                        except UnicodeDecodeError:
+                            df_nom = pd.read_csv(uploaded_nomina, encoding='latin1')
+                    
+                    # Normalizar nombres de columnas de Nómina
+                    df_nom.columns = [str(c).strip() for c in df_nom.columns]
+                    rename_rules = {}
+                    for c in df_nom.columns:
+                        if c.lower() in ['identificador', 'id', 'cedula', 'cédula']: rename_rules[c] = 'Identificador'
+                        if c.lower() in ['concepto', 'código', 'codigo']: rename_rules[c] = 'Concepto'
+                        if c.lower() in ['cantidad', 'horas', 'valor_cantidad']: rename_rules[c] = 'Cantidad_Nomina'
+                    df_nom = df_nom.rename(columns=rename_rules)
+                    
+                    if 'Identificador' in df_nom.columns and 'Concepto' in df_nom.columns and 'Cantidad_Nomina' in df_nom.columns:
+                        df_nom['Identificador'] = df_nom['Identificador'].astype(str).str.strip()
+                        df_nom['Concepto'] = df_nom['Concepto'].astype(str).str.replace('C', '', regex=False).str.strip()
+                        df_nom['Cantidad_Nomina'] = df_nom['Cantidad_Nomina'].astype(str).str.replace(',', '.', regex=False).str.strip()
+                        df_nom['Cantidad_Nomina'] = pd.to_numeric(df_nom['Cantidad_Nomina'], errors='coerce').fillna(0.0)
+                        
+                        st.session_state.df_nomina_cargado = df_nom[['Identificador', 'Concepto', 'Cantidad_Nomina']]
+                    else:
+                        st.error("❌ El archivo de Nómina debe contener las columnas: Identificador (Cédula), Concepto y Cantidad.")
+                        st.session_state.df_nomina_cargado = None
+                else:
+                    st.session_state.df_nomina_cargado = None
+
+                st.success("🎉 ¡Cálculo e Importación completados con éxito!")
                 
         except Exception as e:
             st.error(f"❌ Ocurrió un error inesperado: {str(e)}")
 
-# --- SECCIÓN DE RESULTADOS PERSISTENTE ---
+# --- SECCIÓN DE RESULTADOS ---
 if st.session_state.df_consolidado is not None:
     st.markdown("---")
     
-    # --- CUADRO 1: VISTA MATRICIAL (DOBLE CABECERA) ---
+    # --- CUADRO 1: MALLA ---
     st.subheader("🔍 1. Cuadro de Consulta General (Vista Malla)")
-    
-    busqueda = st.text_input(
-        "Filtrar por Identificador (Cédula) - Cuadro General:", 
-        placeholder="Escribe la cédula para filtrar la malla...",
-        key="search_malla"
-    ).strip()
-
+    busqueda = st.text_input("Filtrar por Identificador (Cédula) - Malla:", placeholder="Cédula...", key="s_malla").strip()
+    df_m = st.session_state.df_consolidado
     if busqueda:
-        df_mostrar_malla = st.session_state.df_consolidado[st.session_state.df_consolidado[('Número concepto', 'Identificador')].astype(str).str.contains(busqueda, case=False)]
-    else:
-        df_mostrar_malla = st.session_state.df_consolidado
-
-    st.dataframe(df_mostrar_malla, use_container_width=True)
+        df_m = df_m[df_m[('Número concepto', 'Identificador')].astype(str).str.contains(busqueda, case=False)]
+    st.dataframe(df_m, use_container_width=True)
     
-    # --- CONSTRUCCIÓN SEGUNDO CUADRO: FORMATO DETALLADO (VERTICAL) ---
+    # --- CUADRO 2: DETALLADO VERTICAL ---
     st.markdown("---")
     st.subheader("📋 2. Cuadro Detallado (Estructura Base GeoVictoria)")
-    
-    # Reconvertir la estructura MultiIndex para realizar el despivote vertical
-    df_flat = st.session_state.df_consolidado.copy()
-    
-    # Combinar Apellidos y Nombres en una sola columna "Nombre" para cumplir la estructura exacta de la imagen
-    identificador_col = df_flat[('Número concepto', 'Identificador')]
-    nombre_completo_col = df_flat[('Número concepto', 'Apellidos')].astype(str) + " " + df_flat[('Número concepto', 'Nombres')].astype(str)
-    
-    # Extraer únicamente los bloques de conceptos numéricos
-    conceptos_columnas = [col for col in df_flat.columns if col[0] != 'Número concepto']
-    
-    df_listado = []
-    for col in conceptos_columnas:
-        df_temp = pd.DataFrame({
-            'Identificador': identificador_col,
-            'Nombre': nombre_completo_col,
-            'Concepto': col[0],
-            'Nombre Concepto': col[1],
-            'Cantidad': df_flat[col]
-        })
-        df_listado.append(df_temp)
-        
-    # Unificar todas las filas y filtrar aquellas cuya cantidad sea mayor a 0 (opcional, igual que en reportes base)
-    df_vertical_final = pd.concat(df_listado, ignore_index=True)
-    df_vertical_final = df_vertical_final[df_vertical_final['Cantidad'] > 0].sort_values(by=['Identificador', 'Concepto']).reset_index(drop=True)
-    
-    busqueda_v = st.text_input(
-        "Filtrar por Identificador (Cédula) - Cuadro Detallado:", 
-        placeholder="Escribe la cédula para filtrar el listado vertical...",
-        key="search_vertical"
-    ).strip()
-    
+    busqueda_v = st.text_input("Filtrar por Identificador (Cédula) - Detalle:", placeholder="Cédula...", key="s_vert").strip()
+    df_v = st.session_state.df_vertical_final
     if busqueda_v:
-        df_mostrar_vertical = df_vertical_final[df_vertical_final['Identificador'].astype(str).str.contains(busqueda_v, case=False)]
-    else:
-        df_mostrar_vertical = df_vertical_final
-        
-    # Tabla interactiva con el formato exacto de columnas solicitado
-    st.dataframe(df_mostrar_vertical, use_container_width=True)
+        df_v = df_v[df_v['Identificador'].astype(str).str.contains(busqueda_v, case=False)]
+    st.dataframe(df_v, use_container_width=True)
+
+    # --- CUADRO 3: COMPARATIVO NÓMINA VS MARCACIÓN ---
+    st.markdown("---")
+    st.subheader("⚖️ 3. Comparación Nómina vs Marcación")
     
-    # --- DESCARGAS SEPARADAS ---
-    st.markdown("### 📥 Descarga de Reportes")
+    if st.session_state.df_nomina_cargado is not None:
+        # Hacer una unión completa (outer join) para identificar discrepancias en ambos lados
+        df_marcas = st.session_state.df_vertical_final.copy()
+        df_marcas['Identificador'] = df_marcas['Identificador'].astype(str).str.strip()
+        df_marcas['Concepto'] = df_marcas['Concepto'].astype(str).str.strip()
+        
+        df_nom_comp = st.session_state.df_nomina_cargado.copy()
+        
+        # Combinar datos
+        df_comparativo = pd.merge(
+            df_marcas, 
+            df_nom_comp, 
+            on=['Identificador', 'Concepto'], 
+            how='outer'
+        )
+        
+        # Rellenar ceros y rescatar nombres si venían de marcaciones
+        df_comparativo['Cantidad'] = df_comparativo['Cantidad'].fillna(0.0)
+        df_comparativo['Cantidad_Nomina'] = df_comparativo['Cantidad_Nomina'].fillna(0.0)
+        df_comparativo['Nombre'] = df_comparativo['Nombre'].fillna("No registrado en Marcaciones")
+        
+        # Diccionario de conceptos para rellenar nombres faltantes si venían solo en Nómina
+        conceptos_dict = {"1060": "Recargo Nocturno 0.35%", "1066": "Recargo Dominical Compensado", 
+                          "1067": "Recargo Dominical No Compensado", "100729": "Recargo Festivo", 
+                          "100730": "Recargo Festivo", "1061": "Extras Ordinarias Diurnas", 
+                          "1062": "Extras Ordinarias Nocturnas", "1063": "Extras Festivas Diurnas", 
+                          "1064": "Extras Festivas Nocturnas"}
+        
+        df_comparativo['Nombre Concepto'] = df_comparativo['Nombre Concepto'].fillna(df_comparativo['Concepto'].map(conceptos_dict)).fillna("Concepto Desconocido")
+        
+        # CALCULO DE DIFERENCIAS (Nómina vs Marcaciones)
+        df_comparativo['DIF'] = df_comparativo['Cantidad_Nomina'] - df_comparativo['Cantidad']
+        
+        # Renombrar columnas para calcar la estructura exacta solicitada en la imagen
+        df_comparativo = df_comparativo.rename(columns={
+            'Cantidad_Nomina': 'Cantidad Nómina',
+            'Cantidad': 'Cantidad Marcación'
+        })
+        
+        # Reordenar columnas para visualización gerencial
+        columnas_orden = ['Identificador', 'Nombre', 'Concepto', 'Nombre Concepto', 'Cantidad Nómina', 'Cantidad Marcación', 'DIF']
+        df_comparativo = df_comparativo[columnas_orden].sort_values(by=['Identificador', 'Concepto']).reset_index(drop=True)
+        
+        busqueda_c = st.text_input("Filtrar por Identificador (Cédula) - Comparativo:", placeholder="Cédula...", key="s_comp").strip()
+        df_c_mostrar = df_comparativo
+        if busqueda_c:
+            df_c_mostrar = df_c_mostrar[df_c_mostrar['Identificador'].astype(str).str.contains(busqueda_c, case=False)]
+            
+        # Desplegar tabla comparativa
+        st.dataframe(df_c_mostrar, use_container_width=True)
+        
+        # Botón de Descarga del Comparativo
+        output_comp = io.BytesIO()
+        with pd.ExcelWriter(output_comp, engine='openpyxl') as writer:
+            df_comparativo.to_excel(writer, index=False, sheet_name="Diferencias_SIC")
+        st.download_button(
+            label="⚖️ DESCARGAR EXCEL DE COMPARACIÓN Y DIFERENCIAS",
+            data=output_comp.getvalue(),
+            file_name="Comparativo_Nomina_vs_Marcacion.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    else:
+        st.warning("⚠️ Para habilitar este cuadro, por favor arrastra el archivo de Nómina en el espacio de carga superior.")
+
+    # --- DESCARGAS DEL RESTO DE REPORTES ---
+    st.markdown("### 📥 Descarga de Reportes Adicionales")
     col_down1, col_down2 = st.columns(2)
     
     with col_down1:
-        # Descarga Malla Aplanada
         df_excel_malla = st.session_state.df_consolidado.copy()
         df_excel_malla.columns = [f"{col[0]} - {col[1]}" for col in df_excel_malla.columns]
         output_malla = io.BytesIO()
@@ -281,10 +357,9 @@ if st.session_state.df_consolidado is not None:
         )
         
     with col_down2:
-        # Descarga Formato Detallado GeoVictoria
         output_vertical = io.BytesIO()
         with pd.ExcelWriter(output_vertical, engine='openpyxl') as writer:
-            df_vertical_final.to_excel(writer, index=False, sheet_name="Estructura SIC")
+            st.session_state.df_vertical_final.to_excel(writer, index=False, sheet_name="Estructura SIC")
         st.download_button(
             label="📋 DESCARGAR EXCEL LISTADO DETALLADO",
             data=output_vertical.getvalue(),
