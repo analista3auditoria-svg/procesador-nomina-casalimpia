@@ -14,10 +14,39 @@ st.set_page_config(
 if 'df_consolidado' not in st.session_state:
     st.session_state.df_consolidado = None
 
-# Estilos visuales en la parte superior (Azul corporativo)
+# --- ESTILOS VISUALES PERSONALIZADOS (CSS) ---
 st.markdown(
     """
-    <div style="background-color:#1e3a8a; padding:20px; border-radius:10px; margin-bottom:25px;">
+    <style>
+        /* Encabezado de la página */
+        .custom-header {
+            background-color: #1e3a8a; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 25px;
+        }
+        
+        /* Personalización de las tablas de Streamlit */
+        div[data-testid="stDataFrame"] table th {
+            background-color: #1e3a8a !important;
+            color: white !important;
+            font-weight: bold !important;
+            text-align: center !important;
+        }
+        
+        /* Ajuste para que los textos internos se alineen correctamente */
+        div[data-testid="stDataFrame"] {
+            font-family: Arial, sans-serif;
+        }
+    </style>
+    """, 
+    unsafe_allow_html=True
+)
+
+# Banner corporativo superior
+st.markdown(
+    """
+    <div class="custom-header">
         <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">PROCESADOR DE NÓMINA - CASALIMPIA</h1>
         <p style="color:#cbd5e1; text-align:center; margin:5px 0 0 0;">Malla de Validación de Horas GeoVictoria</p>
     </div>
@@ -37,7 +66,6 @@ def parse_geovictoria_date(val):
 st.subheader("1. Seleccione el Reporte Base de GeoVictoria")
 uploaded_file = st.file_uploader("Arrastra o selecciona tu archivo (.xlsx o .csv)", type=["xlsx", "csv"])
 
-# Si el usuario cambia o quita el archivo, limpiamos la memoria
 if uploaded_file is None:
     st.session_state.df_consolidado = None
 
@@ -123,7 +151,7 @@ if uploaded_file is not None:
                     else:
                         df_filtered[fixed_col] = 0.0
 
-                # Aplicación de fórmulas exactas de los recargos
+                # Fórmulas de recargos
                 df_filtered['TOTAL DOM PLENO \n(1.75%)'] = df_filtered['COLUMNA_AM'] + df_filtered['COLUMNA_AO']
                 df_filtered['TOTAL FEST (1.75%)'] = df_filtered['RFD'] + df_filtered['RFN'] + df_filtered['RDF'] + df_filtered['RNF']
                 df_filtered['TOTAL DOM COMP \n(0.75%)'] = df_filtered['COLUMNA_AI'] + df_filtered['COLUMNA_AK']
@@ -143,7 +171,6 @@ if uploaded_file is not None:
                     'EXTRAS DOMINICALES DIURNAS (2.00%)', 'EXTRAS ORDINARIAS NOCTURNAS (1.75%)', 'EXTRAS DOMINICALES NOCTURNAS (2.50%)'
                 ]
 
-                # Guardamos el resultado final en la memoria de la sesión
                 st.session_state.df_consolidado = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_finales].sum().reset_index()
                 st.success("¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
                 
@@ -151,7 +178,6 @@ if uploaded_file is not None:
             st.error(f"Ocurrió un error inesperado: {str(e)}")
 
 # --- SECCIÓN DE RESULTADOS PERSISTENTE ---
-# Si los datos ya existen en la memoria, los mostramos permanentemente aquí abajo
 if st.session_state.df_consolidado is not None:
     st.markdown("---")
     st.subheader("🔍 Cuadro de Consulta y Búsqueda")
@@ -161,7 +187,6 @@ if st.session_state.df_consolidado is not None:
         placeholder="Escribe la cédula y presiona Enter para buscar..."
     ).strip()
 
-    # Filtrar dinámicamente según la búsqueda
     if busqueda:
         df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado['Identificador'].astype(str).str.contains(busqueda, case=False)]
         if df_mostrar.empty:
@@ -169,10 +194,10 @@ if st.session_state.df_consolidado is not None:
     else:
         df_mostrar = st.session_state.df_consolidado
 
-    # Desplegar la tabla principal
+    # Tabla interactiva con estilos CSS aplicados automáticamente
     st.dataframe(df_mostrar, use_container_width=True)
     
-    # Preparar el botón de descarga del set de datos completo
+    # Preparar el archivo de descarga
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         st.session_state.df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
