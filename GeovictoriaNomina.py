@@ -201,38 +201,94 @@ if uploaded_file is not None:
 # --- SECCIÓN DE RESULTADOS PERSISTENTE ---
 if st.session_state.df_consolidado is not None:
     st.markdown("---")
-    st.subheader("🔍 Cuadro de Consulta y Búsqueda")
+    
+    # --- CUADRO 1: VISTA MATRICIAL (DOBLE CABECERA) ---
+    st.subheader("🔍 1. Cuadro de Consulta General (Vista Malla)")
     
     busqueda = st.text_input(
-        "Filtrar por Identificador (Cédula):", 
-        placeholder="Escribe la cédula y presiona Enter para buscar..."
+        "Filtrar por Identificador (Cédula) - Cuadro General:", 
+        placeholder="Escribe la cédula para filtrar la malla...",
+        key="search_malla"
     ).strip()
 
     if busqueda:
-        df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado[('Número concepto', 'Identificador')].astype(str).str.contains(busqueda, case=False)]
-        if df_mostrar.empty:
-            st.warning(f"⚠️ No se encontró ningún empleado con la cédula: {busqueda}")
+        df_mostrar_malla = st.session_state.df_consolidado[st.session_state.df_consolidado[('Número concepto', 'Identificador')].astype(str).str.contains(busqueda, case=False)]
     else:
-        df_mostrar = st.session_state.df_consolidado
+        df_mostrar_malla = st.session_state.df_consolidado
 
-    # Tabla interactiva en la Web (Muestra perfectamente la doble fila)
-    st.dataframe(df_mostrar, use_container_width=True)
+    st.dataframe(df_mostrar_malla, use_container_width=True)
     
-    # --- PREPARACIÓN DEL EXCEL CORREGIDA (Evita NotImplementedError) ---
-    df_excel = st.session_state.df_consolidado.copy()
+    # --- CONSTRUCCIÓN SEGUNDO CUADRO: FORMATO DETALLADO (VERTICAL) ---
+    st.markdown("---")
+    st.subheader("📋 2. Cuadro Detallado (Estructura Base GeoVictoria)")
     
-    # Convertimos los nombres combinados a una sola fila limpia para el archivo descargable
-    df_excel.columns = [f"{col[0]} - {col[1]}" for col in df_excel.columns]
+    # Reconvertir la estructura MultiIndex para realizar el despivote vertical
+    df_flat = st.session_state.df_consolidado.copy()
     
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df_excel.to_excel(writer, index=False, sheet_name="Vista en SIC")
-    processed_data = output.getvalue()
+    # Combinar Apellidos y Nombres en una sola columna "Nombre" para cumplir la estructura exacta de la imagen
+    identificador_col = df_flat[('Número concepto', 'Identificador')]
+    nombre_completo_col = df_flat[('Número concepto', 'Apellidos')].astype(str) + " " + df_flat[('Número concepto', 'Nombres')].astype(str)
     
-    st.download_button(
-        label="📥 DESCARGAR EXCEL CONSOLIDADO COMPLETO",
-        data=processed_data,
-        file_name="Consolidado_Nomina_SIC.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
+    # Extraer únicamente los bloques de conceptos numéricos
+    conceptos_columnas = [col for col in df_flat.columns if col[0] != 'Número concepto']
+    
+    df_listado = []
+    for col in conceptos_columnas:
+        df_temp = pd.DataFrame({
+            'Identificador': identificador_col,
+            'Nombre': nombre_completo_col,
+            'Concepto': col[0],
+            'Nombre Concepto': col[1],
+            'Cantidad': df_flat[col]
+        })
+        df_listado.append(df_temp)
+        
+    # Unificar todas las filas y filtrar aquellas cuya cantidad sea mayor a 0 (opcional, igual que en reportes base)
+    df_vertical_final = pd.concat(df_listado, ignore_index=True)
+    df_vertical_final = df_vertical_final[df_vertical_final['Cantidad'] > 0].sort_values(by=['Identificador', 'Concepto']).reset_index(drop=True)
+    
+    busqueda_v = st.text_input(
+        "Filtrar por Identificador (Cédula) - Cuadro Detallado:", 
+        placeholder="Escribe la cédula para filtrar el listado vertical...",
+        key="search_vertical"
+    ).strip()
+    
+    if busqueda_v:
+        df_mostrar_vertical = df_vertical_final[df_vertical_final['Identificador'].astype(str).str.contains(busqueda_v, case=False)]
+    else:
+        df_mostrar_vertical = df_vertical_final
+        
+    # Tabla interactiva con el formato exacto de columnas solicitado
+    st.dataframe(df_mostrar_vertical, use_container_width=True)
+    
+    # --- DESCARGAS SEPARADAS ---
+    st.markdown("### 📥 Descarga de Reportes")
+    col_down1, col_down2 = st.columns(2)
+    
+    with col_down1:
+        # Descarga Malla Aplanada
+        df_excel_malla = st.session_state.df_consolidado.copy()
+        df_excel_malla.columns = [f"{col[0]} - {col[1]}" for col in df_excel_malla.columns]
+        output_malla = io.BytesIO()
+        with pd.ExcelWriter(output_malla, engine='openpyxl') as writer:
+            df_excel_malla.to_excel(writer, index=False, sheet_name="Malla Horas")
+        st.download_button(
+            label="📊 DESCARGAR EXCEL VISTA MALLA",
+            data=output_malla.getvalue(),
+            file_name="Malla_Consolidado_Nomina.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+        
+    with col_down2:
+        # Descarga Formato Detallado GeoVictoria
+        output_vertical = io.BytesIO()
+        with pd.ExcelWriter(output_vertical, engine='openpyxl') as writer:
+            df_vertical_final.to_excel(writer, index=False, sheet_name="Estructura SIC")
+        st.download_button(
+            label="📋 DESCARGAR EXCEL LISTADO DETALLADO",
+            data=output_vertical.getvalue(),
+            file_name="Detalle_Format_GeoVictoria.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
