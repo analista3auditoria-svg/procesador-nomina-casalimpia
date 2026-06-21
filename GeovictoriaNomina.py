@@ -5,9 +5,9 @@ import io
 
 # Configuración de la página web amplia
 st.set_page_config(
-    page_title="Procesador de Nómina - Casalimpia",
+    page_title="Malla de Marcaciones GeoVictoria",
     page_icon="📊",
-    layout="wide"
+    layout="centered"
 )
 
 # Inicializar la memoria de sesión si no existe
@@ -18,12 +18,29 @@ if 'df_consolidado' not in st.session_state:
 st.markdown(
     """
     <style>
-        /* Encabezado de la página */
+        /* Encabezado de la página tipo Banner Flexbox */
         .custom-header {
             background-color: #1e3a8a; 
             padding: 20px; 
             border-radius: 10px; 
             margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        /* Contenedor de texto dentro del banner */
+        .header-text {
+            text-align: center;
+        }
+        
+        /* Redimensionamiento adaptativo del Logo */
+        .header-logo {
+            max-height: 60px;
+            width: auto;
+            object-fit: contain;
         }
         
         /* Personalización de las tablas de Streamlit */
@@ -43,12 +60,15 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Banner corporativo superior
+# Banner corporativo superior con Logo Oficial e Integración de Flexbox
 st.markdown(
     """
     <div class="custom-header">
-        <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">📊 PROCESADOR DE MARCACIONES GEOVICTORIA - CASALIMPIA</h1>
-        <p style="color:#cbd5e1; text-align:center; margin:5px 0 0 0;">Malla de Validación de Horas GeoVictoria</p>
+        <img class="header-logo" src="https://casalimpia.com/wp-content/uploads/2021/04/Logo-casalimpia-01.png" alt="Logo Casalimpia">
+        <div class="header-text">
+            <h1 style="color:white; margin:0; font-family:Arial; font-size: 24px;">MALLA DE MARCACIONES GEOVICTORIA</h1>
+            <p style="color:#cbd5e1; margin:5px 0 0 0; font-size: 14px;">Malla de Validación de Horas - Casalimpia S.A.</p>
+        </div>
     </div>
     """, 
     unsafe_allow_html=True
