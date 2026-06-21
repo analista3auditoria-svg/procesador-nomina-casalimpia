@@ -7,7 +7,7 @@ import io
 st.set_page_config(
     page_title="Procesador de Nómina - Casalimpia",
     page_icon="📊",
-    layout="wide"
+    layout="centered"
 )
 
 # Inicializar la memoria de sesión si no existe
