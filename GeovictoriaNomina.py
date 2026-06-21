@@ -5,7 +5,7 @@ import io
 
 # Configuración de la página web amplia
 st.set_page_config(
-    page_title="Procesador de Nómina - Casalimpia",
+    page_title="Malla de Marcaciones GeoVictoria",
     page_icon="📊",
     layout="wide"
 )
@@ -18,12 +18,29 @@ if 'df_consolidado' not in st.session_state:
 st.markdown(
     """
     <style>
-        /* Encabezado de la página */
+        /* Encabezado de la página tipo Banner Flexbox */
         .custom-header {
             background-color: #1e3a8a; 
             padding: 20px; 
             border-radius: 10px; 
             margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        /* Contenedor de texto dentro del banner */
+        .header-text {
+            text-align: center;
+        }
+        
+        /* Redimensionamiento adaptativo del Logo */
+        .header-logo {
+            max-height: 60px;
+            width: auto;
+            object-fit: contain;
         }
         
         /* Personalización de las tablas de Streamlit */
@@ -32,6 +49,7 @@ st.markdown(
             color: white !important;
             font-weight: bold !important;
             text-align: center !important;
+            white-space: pre-wrap !important; /* Permite saltos de línea en cabeceras */
         }
         
         /* Ajuste para que los textos internos se alineen correctamente */
@@ -43,12 +61,15 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Banner corporativo superior
+# Banner corporativo superior con Logo Oficial e Integración de Flexbox
 st.markdown(
     """
     <div class="custom-header">
-        <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">📊 PROCESADOR DE MARCACIONES GEOVICTORIA - CASALIMPIA</h1>
-        <p style="color:#cbd5e1; text-align:center; margin:5px 0 0 0;">Malla de Validación de Horas GeoVictoria</p>
+        <img class="header-logo" src="https://casalimpia.com/wp-content/uploads/2021/04/Logo-casalimpia-01.png" alt="Logo Casalimpia">
+        <div class="header-text">
+            <h1 style="color:white; margin:0; font-family:Arial; font-size: 24px;">MALLA DE MARCACIONES GEOVICTORIA</h1>
+            <p style="color:#cbd5e1; margin:5px 0 0 0; font-size: 14px;">Malla de Validación de Horas - Casalimpia S.A.</p>
+        </div>
     </div>
     """, 
     unsafe_allow_html=True
@@ -151,24 +172,24 @@ if uploaded_file is not None:
                     else:
                         df_filtered[fixed_col] = 0.0
 
-                # Fórmulas de recargos (Mantenemos los nombres exactos con sus saltos de línea \n)
-                df_filtered['TOTAL DOM PLENO \n(1.75%)'] = df_filtered['COLUMNA_AM'] + df_filtered['COLUMNA_AO']
-                df_filtered['TOTAL FEST (1.75%)'] = df_filtered['RFD'] + df_filtered['RFN'] + df_filtered['RDF'] + df_filtered['RNF']
-                df_filtered['TOTAL DOM COMP \n(0.75%)'] = df_filtered['COLUMNA_AI'] + df_filtered['COLUMNA_AK']
-                df_filtered['TOTAL FEST (0.75%)'] = (df_filtered['COLUMNA_AQ'] + df_filtered['COLUMNA_AS'] + 
-                                                     df_filtered['COLUMNA_AU'] + df_filtered['COLUMNA_AW'])
-                df_filtered['TOTAL REC.   NOC.    \n(0.35%)'] = (df_filtered['COLUMNA_AG'] + df_filtered['COLUMNA_AK'] + 
-                                                                   df_filtered['COLUMNA_AS'] + df_filtered['COLUMNA_AO'] + 
-                                                                   df_filtered['COLUMNA_AW'])
-                df_filtered['EXTRAS ORDINARIAS DIURNAS (1.25%)'] = df_filtered['COLUMNA_U']
-                df_filtered['EXTRAS DOMINICALES DIURNAS (2.00%)'] = df_filtered['COLUMNA_Y'] + df_filtered['COLUMNA_AC']
-                df_filtered['EXTRAS ORDINARIAS NOCTURNAS (1.75%)'] = df_filtered['COLUMNA_W']
-                df_filtered['EXTRAS DOMINICALES NOCTURNAS (2.50%)'] = df_filtered['COLUMNA_AA'] + df_filtered['COLUMNA_AE']
+                # --- FÓRMULAS CON CODES DE CONCEPTO ASIGNADOS EN LA PARTE SUPERIOR ---
+                df_filtered['1067\nTOTAL DOM PLENO\n(1.75%)'] = df_filtered['COLUMNA_AM'] + df_filtered['COLUMNA_AO']
+                df_filtered['100730\nTOTAL FEST\n(1.75%)'] = df_filtered['RFD'] + df_filtered['RFN'] + df_filtered['RDF'] + df_filtered['RNF']
+                df_filtered['1066\nTOTAL DOM COMP\n(0.75%)'] = df_filtered['COLUMNA_AI'] + df_filtered['COLUMNA_AK']
+                df_filtered['100729\nTOTAL FEST\n(0.75%)'] = (df_filtered['COLUMNA_AQ'] + df_filtered['COLUMNA_AS'] + 
+                                                               df_filtered['COLUMNA_AU'] + df_filtered['COLUMNA_AW'])
+                df_filtered['1060\nTOTAL REC. NOC.\n(0.35%)'] = (df_filtered['COLUMNA_AG'] + df_filtered['COLUMNA_AK'] + 
+                                                                  df_filtered['COLUMNA_AS'] + df_filtered['COLUMNA_AO'] + 
+                                                                  df_filtered['COLUMNA_AW'])
+                df_filtered['1061\nEXTRAS ORDINARIAS DIURNAS\n(1.25%)'] = df_filtered['COLUMNA_U']
+                df_filtered['1063\nEXTRAS FESTIVAS DIURNAS\n(2.00%)'] = df_filtered['COLUMNA_Y'] + df_filtered['COLUMNA_AC']
+                df_filtered['1062\nEXTRAS ORDINARIAS NOCTURNAS\n(1.75%)'] = df_filtered['COLUMNA_W']
+                df_filtered['1064\nEXTRAS FESTIVAS NOCTURNAS\n(2.50%)'] = df_filtered['COLUMNA_AA'] + df_filtered['COLUMNA_AE']
 
                 conceptos_finales = [
-                    'TOTAL DOM PLENO \n(1.75%)', 'TOTAL FEST (1.75%)', 'TOTAL DOM COMP \n(0.75%)',
-                    'TOTAL FEST (0.75%)', 'TOTAL REC.   NOC.    \n(0.35%)', 'EXTRAS ORDINARIAS DIURNAS (1.25%)',
-                    'EXTRAS DOMINICALES DIURNAS (2.00%)', 'EXTRAS ORDINARIAS NOCTURNAS (1.75%)', 'EXTRAS DOMINICALES NOCTURNAS (2.50%)'
+                    '1067\nTOTAL DOM PLENO\n(1.75%)', '100730\nTOTAL FEST\n(1.75%)', '1066\nTOTAL DOM COMP\n(0.75%)',
+                    '100729\nTOTAL FEST\n(0.75%)', '1060\nTOTAL REC. NOC.\n(0.35%)', '1061\nEXTRAS ORDINARIAS DIURNAS\n(1.25%)',
+                    '1063\nEXTRAS FESTIVAS DIURNAS\n(2.00%)', '1062\nEXTRAS ORDINARIAS NOCTURNAS\n(1.75%)', '1064\nEXTRAS FESTIVAS NOCTURNAS\n(2.50%)'
                 ]
 
                 st.session_state.df_consolidado = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_finales].sum().reset_index()
