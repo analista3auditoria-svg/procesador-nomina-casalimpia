@@ -215,13 +215,18 @@ if st.session_state.df_consolidado is not None:
     else:
         df_mostrar = st.session_state.df_consolidado
 
-    # Tabla interactiva
+    # Tabla interactiva en la Web (Muestra perfectamente la doble fila)
     st.dataframe(df_mostrar, use_container_width=True)
     
-    # Preparar el archivo de descarga en Excel
+    # --- PREPARACIÓN DEL EXCEL CORREGIDA (Evita NotImplementedError) ---
+    df_excel = st.session_state.df_consolidado.copy()
+    
+    # Convertimos los nombres combinados a una sola fila limpia para el archivo descargable
+    df_excel.columns = [f"{col[0]} - {col[1]}" for col in df_excel.columns]
+    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        st.session_state.df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
+        df_excel.to_excel(writer, index=False, sheet_name="Vista en SIC")
     processed_data = output.getvalue()
     
     st.download_button(
