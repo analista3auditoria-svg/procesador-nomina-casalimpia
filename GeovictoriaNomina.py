@@ -18,29 +18,13 @@ if 'df_consolidado' not in st.session_state:
 st.markdown(
     """
     <style>
-        /* Encabezado de la página tipo Banner Flexbox */
+        /* Encabezado de la página centrado y limpio sin logo */
         .custom-header {
             background-color: #1e3a8a; 
             padding: 20px; 
             border-radius: 10px; 
             margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        
-        /* Contenedor de texto dentro del banner */
-        .header-text {
             text-align: center;
-        }
-        
-        /* Redimensionamiento adaptativo del Logo */
-        .header-logo {
-            max-height: 60px;
-            width: auto;
-            object-fit: contain;
         }
         
         /* Personalización de las tablas de Streamlit (Soporte MultiIndex) */
@@ -63,15 +47,12 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Banner corporativo superior con Logo Oficial e Integración de Flexbox
+# Banner corporativo superior sin Logo
 st.markdown(
     """
     <div class="custom-header">
-        <img class="header-logo" src="https://casalimpia.com/wp-content/uploads/2021/04/Logo-casalimpia-01.png" alt="Logo Casalimpia">
-        <div class="header-text">
-            <h1 style="color:white; margin:0; font-family:Arial; font-size: 24px;">MALLA DE MARCACIONES GEOVICTORIA</h1>
-            <p style="color:#cbd5e1; margin:5px 0 0 0; font-size: 14px;">Malla de Validación de Horas - Casalimpia S.A.</p>
-        </div>
+        <h1 style="color:white; margin:0; font-family:Arial; font-size: 24px;">MALLA DE MARCACIONES GEOVICTORIA</h1>
+        <p style="color:#cbd5e1; margin:5px 0 0 0; font-size: 14px;">Malla de Validación de Horas - Casalimpia S.A.</p>
     </div>
     """, 
     unsafe_allow_html=True
@@ -193,11 +174,10 @@ if uploaded_file is not None:
                 df_grouped = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_tecnicos].sum().reset_index()
 
                 # --- CONSTRUCCIÓN ESTRUCTURA DE DOBLE FILA (MultiIndex) ---
-                # Definimos las tuplas: (Fila Superior 1, Fila Inferior 2)
                 columnas_multi = [
-                    ('Identificador', 'Identificador'),
-                    ('Apellidos', 'Apellidos'),
-                    ('Nombres', 'Nombres'),
+                    ('Número concepto', 'Identificador'),
+                    ('Número concepto', 'Apellidos'),
+                    ('Número concepto', 'Nombres'),
                     ('1067', 'TOTAL DOM PLENO (1.75%)'),
                     ('100730', 'TOTAL FEST (1.75%)'),
                     ('1066', 'TOTAL DOM COMP (0.75%)'),
@@ -229,17 +209,16 @@ if st.session_state.df_consolidado is not None:
     ).strip()
 
     if busqueda:
-        # Filtrado considerando que la columna es una tupla ('Identificador', 'Identificador')
-        df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado[('Identificador', 'Identificador')].astype(str).str.contains(busqueda, case=False)]
+        df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado[('Número concepto', 'Identificador')].astype(str).str.contains(busqueda, case=False)]
         if df_mostrar.empty:
             st.warning(f"⚠️ No se encontró ningún empleado con la cédula: {busqueda}")
     else:
         df_mostrar = st.session_state.df_consolidado
 
-    # Tabla interactiva con soporte nativo de Streamlit para MultiIndex (Doble fila superior)
+    # Tabla interactiva
     st.dataframe(df_mostrar, use_container_width=True)
     
-    # Preparar el archivo de descarga en Excel (Mantiene perfectamente la estructura de doble cabecera)
+    # Preparar el archivo de descarga en Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         st.session_state.df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
