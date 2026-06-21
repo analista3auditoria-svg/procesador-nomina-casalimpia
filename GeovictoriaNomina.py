@@ -47,7 +47,7 @@ st.markdown(
 st.markdown(
     """
     <div class="custom-header">
-        <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">PROCESADOR DE NÓMINA - CASALIMPIA</h1>
+        <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">📊 PROCESADOR DE NÓMINA - CASALIMPIA</h1>
         <p style="color:#cbd5e1; text-align:center; margin:5px 0 0 0;">Malla de Validación de Horas GeoVictoria</p>
     </div>
     """, 
@@ -63,37 +63,37 @@ def parse_geovictoria_date(val):
     return pd.NaT
 
 # --- PASO 1: CARGA DE ARCHIVO ---
-st.subheader("1. Seleccione el Reporte Base de GeoVictoria")
+st.subheader("📁 1. Seleccione el Reporte Base de GeoVictoria")
 uploaded_file = st.file_uploader("Arrastra o selecciona tu archivo (.xlsx o .csv)", type=["xlsx", "csv"])
 
 if uploaded_file is None:
     st.session_state.df_consolidado = None
 
 # --- PASO 2: RANGO DE FECHAS ---
-st.subheader("2. Seleccione el Rango de Fechas")
+st.subheader("📅 2. Seleccione el Rango de Fechas")
 col_f1, col_f2 = st.columns(2)
 with col_f1:
     f_ini_input = st.date_input("Fecha Inicial (Desde)", pd.to_datetime("2026-01-10"))
 with col_f2:
     f_fin_input = st.date_input("Fecha Final (Hasta)", pd.to_datetime("2026-02-13"))
 
-st.info("Compilado optimizado para entorno Web Navegador. Los datos se procesan de forma segura.")
+st.info("💡 Compilado optimizado para entorno Web Navegador. Los datos se procesan de forma segura.")
 
 # --- BOTÓN DE PROCESAMIENTO ---
 if uploaded_file is not None:
-    if st.button("PROCESAR Y CUADRAR INFORMACIÓN", type="primary", use_container_width=True):
+    if st.button("🚀 PROCESAR Y CUADRAR INFORMACIÓN", type="primary", use_container_width=True):
         try:
             f_ini = pd.to_datetime(f_ini_input)
             f_fin = pd.to_datetime(f_fin_input)
             
             if f_ini > f_fin:
-                st.error("Error: La fecha inicial no puede ser mayor a la fecha final.")
+                st.error("❌ Error: La fecha inicial no puede ser mayor a la fecha final.")
             else:
                 if uploaded_file.name.endswith('.xlsx'):
                     try:
                         df = pd.read_excel(uploaded_file, sheet_name="Reporte Geo victoria")
                     except ValueError:
-                        st.error("No se encontró la pestaña 'Reporte Geo victoria' en el archivo Excel.")
+                        st.error("❌ No se encontró la pestaña 'Reporte Geo victoria' en el archivo Excel.")
                         st.stop()
                 else:
                     try:
@@ -106,7 +106,7 @@ if uploaded_file is not None:
                     
                 required = ['Identificador', 'Apellidos', 'Nombres', 'Fecha']
                 if not all(col in df.columns for col in required):
-                    st.error("El archivo cargado no contiene las columnas básicas necesarias (ID/Identificador, Apellidos, Nombres, Fecha).")
+                    st.error("❌ El archivo cargado no contiene las columnas básicas necesarias (ID/Identificador, Apellidos, Nombres, Fecha).")
                     st.stop()
 
                 if len(df.columns) >= 49:
@@ -121,7 +121,7 @@ if uploaded_file is not None:
                         df.columns[48]: 'COLUMNA_AW'
                     })
                 else:
-                    st.error("El archivo no contiene suficientes columnas (Se requiere al menos hasta la columna AW).")
+                    st.error("❌ El archivo no contiene suficientes columnas (Se requiere al menos hasta la columna AW).")
                     st.stop()
 
                 df['Fecha_Procesada'] = df['Fecha'].apply(parse_geovictoria_date)
@@ -129,7 +129,7 @@ if uploaded_file is not None:
                 df_filtered = df[(df['Fecha_Procesada'] >= f_ini) & (df['Fecha_Procesada'] <= f_fin)].copy()
                 
                 if df_filtered.empty:
-                    st.warning("No se encontraron registros en el rango de fechas seleccionado.")
+                    st.warning("⚠️ No se encontraron registros en el rango de fechas seleccionado.")
                     st.stop()
 
                 columnas_horas = ['COLUMNA_U', 'COLUMNA_W', 'COLUMNA_Y', 'COLUMNA_AA', 'COLUMNA_AC', 
@@ -172,10 +172,10 @@ if uploaded_file is not None:
                 ]
 
                 st.session_state.df_consolidado = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_finales].sum().reset_index()
-                st.success("¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
+                st.success("🎉 ¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
                 
         except Exception as e:
-            st.error(f"Ocurrió un error inesperado: {str(e)}")
+            st.error(f"❌ Ocurrió un error inesperado: {str(e)}")
 
 # --- SECCIÓN DE RESULTADOS PERSISTENTE ---
 if st.session_state.df_consolidado is not None:
@@ -190,7 +190,7 @@ if st.session_state.df_consolidado is not None:
     if busqueda:
         df_mostrar = st.session_state.df_consolidado[st.session_state.df_consolidado['Identificador'].astype(str).str.contains(busqueda, case=False)]
         if df_mostrar.empty:
-            st.warning(f"No se encontró ningún empleado con la cédula: {busqueda}")
+            st.warning(f"⚠️ No se encontró ningún empleado con la cédula: {busqueda}")
     else:
         df_mostrar = st.session_state.df_consolidado
 
