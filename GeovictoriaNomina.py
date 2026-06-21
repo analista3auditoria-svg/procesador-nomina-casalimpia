@@ -3,78 +3,52 @@ import pandas as pd
 import re
 import io
 
-# Configuración de la página web estándar (centrada)
+# Configuración de la página web amplia
 st.set_page_config(
     page_title="Procesador de Nómina - Casalimpia",
     page_icon="📊",
-    layout="centered"
+    layout="Wide"
 )
 
 # Inicializar la memoria de sesión si no existe
 if 'df_consolidado' not in st.session_state:
     st.session_state.df_consolidado = None
 
-# --- CSS AVANZADO: DISEÑO CORPORATIVO PROFESIONAL ---
+# --- ESTILOS VISUALES PERSONALIZADOS (CSS) ---
 st.markdown(
     """
     <style>
-        /* Fondo de la aplicación */
-        .stApp {
-            background-color: #f8fafc;
-        }
-        
-        /* Banner superior estilizado */
+        /* Encabezado de la página */
         .custom-header {
-            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
-            padding: 30px; 
-            border-radius: 12px; 
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            background-color: #1e3a8a; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 25px;
         }
         
-        /* Contenedores tipo tarjeta (Cards) */
-        .step-card {
-            background-color: #ffffff;
-            padding: 24px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            margin-bottom: 24px;
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-        }
-        
-        /* Estilizar los encabezados de la tabla de Streamlit */
+        /* Personalización de las tablas de Streamlit */
         div[data-testid="stDataFrame"] table th {
             background-color: #1e3a8a !important;
             color: white !important;
-            font-weight: 600 !important;
-            font-size: 13px !important;
-            padding: 10px !important;
+            font-weight: bold !important;
             text-align: center !important;
         }
         
-        /* Rediseño de botones primarios */
-        div.stButton > button[kind="primary"] {
-            background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
-            border: none !important;
-            padding: 12px 24px !important;
-            font-weight: bold !important;
-            transition: all 0.3s ease;
-        }
-        div.stButton > button[kind="primary"]:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        /* Ajuste para que los textos internos se alineen correctamente */
+        div[data-testid="stDataFrame"] {
+            font-family: Arial, sans-serif;
         }
     </style>
     """, 
     unsafe_allow_html=True
 )
 
-# Banner corporativo
+# Banner corporativo superior
 st.markdown(
     """
     <div class="custom-header">
-        <h1 style="color:white; text-align:center; margin:0; font-family:Arial; font-size:28px; letter-spacing:0.5px;">PROCESADOR DE NÓMINA - CASALIMPIA</h1>
-        <p style="color:#94a3b8; text-align:center; margin:8px 0 0 0; font-size:14px;">Malla Avanzada de Validación de Horas GeoVictoria</p>
+        <h1 style="color:white; text-align:center; margin:0; font-family:Arial;">PROCESADOR DE NÓMINA - CASALIMPIA</h1>
+        <p style="color:#cbd5e1; text-align:center; margin:5px 0 0 0;">Malla de Validación de Horas GeoVictoria</p>
     </div>
     """, 
     unsafe_allow_html=True
@@ -88,17 +62,15 @@ def parse_geovictoria_date(val):
         return pd.to_datetime(match.group(1), format="%d-%m-%Y")
     return pd.NaT
 
-# --- SECCIÓN DE ENTRADAS EN TARJETAS ---
-st.markdown('<div class="step-card">', unsafe_allow_html=True)
-st.subheader("📁 1. Seleccione el Reporte Base de GeoVictoria")
+# --- PASO 1: CARGA DE ARCHIVO ---
+st.subheader("1. Seleccione el Reporte Base de GeoVictoria")
 uploaded_file = st.file_uploader("Arrastra o selecciona tu archivo (.xlsx o .csv)", type=["xlsx", "csv"])
-st.markdown('</div>', unsafe_allow_html=True)
 
 if uploaded_file is None:
     st.session_state.df_consolidado = None
 
-st.markdown('<div class="step-card">', unsafe_allow_html=True)
-st.subheader("📅 2. Seleccione el Rango de Fechas")
+# --- PASO 2: RANGO DE FECHAS ---
+st.subheader("2. Seleccione el Rango de Fechas")
 col_f1, col_f2 = st.columns(2)
 with col_f1:
     f_ini_input = st.date_input("Fecha Inicial (Desde)", pd.to_datetime("2026-01-10"))
@@ -106,7 +78,6 @@ with col_f2:
     f_fin_input = st.date_input("Fecha Final (Hasta)", pd.to_datetime("2026-02-13"))
 
 st.info("Compilado optimizado para entorno Web Navegador. Los datos se procesan de forma segura.")
-st.markdown('</div>', unsafe_allow_html=True)
 
 # --- BOTÓN DE PROCESAMIENTO ---
 if uploaded_file is not None:
@@ -180,7 +151,7 @@ if uploaded_file is not None:
                     else:
                         df_filtered[fixed_col] = 0.0
 
-                # Fórmulas de recargos (Mantenemos los nombres exactos con sus saltos de línea \n originales)
+                # Fórmulas de recargos (Mantenemos los nombres exactos con sus saltos de línea \n)
                 df_filtered['TOTAL DOM PLENO \n(1.75%)'] = df_filtered['COLUMNA_AM'] + df_filtered['COLUMNA_AO']
                 df_filtered['TOTAL FEST (1.75%)'] = df_filtered['RFD'] + df_filtered['RFN'] + df_filtered['RDF'] + df_filtered['RNF']
                 df_filtered['TOTAL DOM COMP \n(0.75%)'] = df_filtered['COLUMNA_AI'] + df_filtered['COLUMNA_AK']
@@ -201,14 +172,14 @@ if uploaded_file is not None:
                 ]
 
                 st.session_state.df_consolidado = df_filtered.groupby(['Identificador', 'Apellidos', 'Nombres'])[conceptos_finales].sum().reset_index()
-                st.success("🎉 ¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
+                st.success("¡Cálculo completado con éxito! Despliega hacia abajo para buscar y descargar.")
                 
         except Exception as e:
             st.error(f"Ocurrió un error inesperado: {str(e)}")
 
-# --- SECCIÓN DE RESULTADOS EN TARJETA ---
+# --- SECCIÓN DE RESULTADOS PERSISTENTE ---
 if st.session_state.df_consolidado is not None:
-    st.markdown('<div class="step-card">', unsafe_allow_html=True)
+    st.markdown("---")
     st.subheader("🔍 Cuadro de Consulta y Búsqueda")
     
     busqueda = st.text_input(
@@ -223,15 +194,8 @@ if st.session_state.df_consolidado is not None:
     else:
         df_mostrar = st.session_state.df_consolidado
 
-    # Sistema de pestañas para organizar las tablas y que no desborden la pantalla
-    tab1, tab2 = st.tabs(["📋 Vista Resumida", "📊 Detalle Completo de Recargos"])
-    
-    with tab1:
-        # Remueve el índice numérico automático de Streamlit para ahorrar valioso espacio horizontal
-        st.dataframe(df_mostrar[['Identificador', 'Apellidos', 'Nombres']], use_container_width=True, hide_index=True)
-        
-    with tab2:
-        st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+    # Tabla interactiva con estilos CSS aplicados automáticamente
+    st.dataframe(df_mostrar, use_container_width=True)
     
     # Preparar el archivo de descarga
     output = io.BytesIO()
@@ -239,7 +203,6 @@ if st.session_state.df_consolidado is not None:
         st.session_state.df_consolidado.to_excel(writer, index=False, sheet_name="Vista en SIC")
     processed_data = output.getvalue()
     
-    st.markdown("<br>", unsafe_allow_html=True)
     st.download_button(
         label="📥 DESCARGAR EXCEL CONSOLIDADO COMPLETO",
         data=processed_data,
@@ -247,4 +210,3 @@ if st.session_state.df_consolidado is not None:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
-    st.markdown('</div>', unsafe_allow_html=True)
